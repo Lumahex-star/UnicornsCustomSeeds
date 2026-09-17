@@ -383,34 +383,66 @@ namespace UnicornsCustomSeeds.Seeds
         }
 
         /// <summary>
-        /// Adds a custom leaf ID to the Cauldron's IngredientSlot ItemFilter_ID whitelists.
-        /// Call this after the leaf has been registered in the Registry.
-        /// Mirrors CustomShroomsManager.AddSyringeToSpawnStations.
+        /// Adds a custom leaf ID to a single Cauldron's IngredientSlot ItemFilter_ID
+        /// whitelists. Shared by AddLeafToCauldrons (one-shot scene sweep) and
+        /// AddKnownLeavesToCauldron (per-instance, called from Cauldron.Start).
+        /// </summary>
+        private static int AddLeafToCauldron(Cauldron cauldron, string customLeafId)
+        {
+            int patched = 0;
+            foreach (ItemSlot slot in cauldron.IngredientSlots)
+            {
+                foreach (ItemFilter filter in slot.HardFilters)
+                {
+#if IL2CPP
+                    ItemFilter_ID idFilter = filter.TryCast<ItemFilter_ID>();
+#elif MONO
+                    ItemFilter_ID idFilter = filter as ItemFilter_ID;
+#endif
+                    if (idFilter != null && !idFilter.IDs.Contains(customLeafId))
+                    {
+                        idFilter.IDs.Add(customLeafId);
+                        patched++;
+                    }
+                }
+            }
+            return patched;
+        }
+
+        /// <summary>
+        /// Adds a custom leaf ID to every Cauldron currently in the scene's IngredientSlot
+        /// ItemFilter_ID whitelists. Call this after the leaf has been registered in the
+        /// Registry. Mirrors CustomShroomsManager.AddSyringeToSpawnStations.
+        ///
+        /// This only reaches Cauldrons that already exist at call time — any Cauldron
+        /// created afterwards (placed by the player, rebuilt on a network client, etc.)
+        /// is caught by AddKnownLeavesToCauldron instead, via the Cauldron.Start patch.
         /// </summary>
         public static void AddLeafToCauldrons(QualityItemDefinition customLeaf)
         {
             Cauldron[] cauldrons = GameObject.FindObjectsOfType<Cauldron>();
             int patched = 0;
             foreach (Cauldron cauldron in cauldrons)
-            {
-                foreach (ItemSlot slot in cauldron.IngredientSlots)
-                {
-                    foreach (ItemFilter filter in slot.HardFilters)
-                    {
-#if IL2CPP
-                        ItemFilter_ID idFilter = filter.TryCast<ItemFilter_ID>();
-#elif MONO
-         ItemFilter_ID idFilter = filter as ItemFilter_ID;
-#endif
-                        if (idFilter != null && !idFilter.IDs.Contains(customLeaf.ID))
-                        {
-                            idFilter.IDs.Add(customLeaf.ID);
-                            patched++;
-                        }
-                    }
-                }
-            }
+                patched += AddLeafToCauldron(cauldron, customLeaf.ID);
             Utility.Log($"CocaFactory: Added '{customLeaf.ID}' to {patched} cauldron slot filter(s).");
+        }
+
+        /// <summary>
+        /// Adds every currently-known custom leaf ID to a single Cauldron's IngredientSlot
+        /// filters. Called from CauldronStartPatch so a Cauldron always has the full,
+        /// up-to-date whitelist the moment it exists — regardless of whether it was already
+        /// in the scene when AddLeafToCauldrons last ran (see that method's remarks).
+        /// </summary>
+        public static void AddKnownLeavesToCauldron(Cauldron cauldron)
+        {
+            if (cauldron == null || CustomLeafIdToBaseId.Count == 0) return;
+
+            int patched = 0;
+            foreach (string customLeafId in CustomLeafIdToBaseId.Keys)
+                patched += AddLeafToCauldron(cauldron, customLeafId);
+
+            if (patched > 0)
+                Utility.Log($"CocaFactory: Whitelisted {patched} custom leaf filter(s) on '{cauldron.name}' at Start.");
         }
     }
 }

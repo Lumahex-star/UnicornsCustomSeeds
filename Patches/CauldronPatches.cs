@@ -70,6 +70,14 @@ namespace UnicornsCustomSeeds.Patches
 
             try
             {
+    // ── A0) Whitelist every already-discovered custom coca leaf ───────
+    // Cauldron.Start fires for every instance regardless of when it comes
+    // into existence (initial load, mid-session placement, network
+    // rebuild), unlike the one-shot FindObjectsOfType sweeps in
+    // CocaFactory.AddLeafToCauldrons callers — so patching here guarantees
+    // this specific cauldron always has the current whitelist.
+    CocaFactory.AddKnownLeavesToCauldron(__instance);
+
     // ── A) onCookEnd cleanup listener ─────────────────────────────────
   var cauldron = __instance;
     cauldron.onCookEnd.AddListener(new Action(() =>

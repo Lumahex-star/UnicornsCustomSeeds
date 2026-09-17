@@ -56,6 +56,7 @@
 		<Compile Include="Patches\NetworkingPatches.cs" />
 		<Compile Include="Patches\ProductManagerAppPatches.cs" />
 		<Compile Include="Patches\PotPatches.cs" />
+		<Compile Include="Patches\MushroomPatches.cs" />
 		<Compile Include="Managers\SeedQuestManager.cs" />
 		<Compile Include="Managers\SeedVisualsManager.cs" />
 		<Compile Include="Patches\AddRecipePatch.cs" />

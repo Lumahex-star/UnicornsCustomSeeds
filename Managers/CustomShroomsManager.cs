@@ -201,49 +201,129 @@ namespace UnicornsCustomSeeds.Managers
         }
 
         /// <summary>
+        /// Adds a ShroomSpawnDefinition to a single MushroomBed's Configuration.Spawn.Options,
+        /// if not already present. Shared by AddSpawnToMushroomBeds (one-shot scene sweep) and
+        /// AddKnownSpawnsToBed (per-instance, called from MushroomBed.Start).
+        /// </summary>
+        private static bool AddSpawnToBed(MushroomBed bed, ShroomSpawnDefinition spawn)
+        {
+#if IL2CPP
+            if (!(bed.Configuration.TryCast<MushroomBedConfiguration>() is MushroomBedConfiguration config))
+                return false;
+#elif MONO
+            if (!(bed.Configuration is MushroomBedConfiguration config))
+                return false;
+#endif
+            if (config.Spawn.Options.Contains(spawn)) return false;
+
+            config.Spawn.Options.Add(spawn);
+            return true;
+        }
+
+        /// <summary>
         /// Pushes a new ShroomSpawnDefinition into every MushroomBed already present in the
         /// scene, mirroring CustomSeedsManager.AddSeedToPots. MushroomBedConfiguration.Spawn.Options
         /// is only populated from ManagementUtilities.MushroomSpawns when a bed's config first
         /// initializes, so beds already spawned need the new spawn definition pushed directly.
+        ///
+        /// This only reaches beds that already exist at call time — any bed created afterwards
+        /// (placed by the player, rebuilt on a network client, recreated when a save is loaded,
+        /// etc.) is caught by AddKnownSpawnsToBed instead, via the MushroomBed.Start patch.
         /// </summary>
         public static void AddSpawnToMushroomBeds(ShroomSpawnDefinition newSpawn)
         {
             var beds = GameObject.FindObjectsOfType<MushroomBed>();
             foreach (MushroomBed bed in beds)
-            {
-#if IL2CPP
-                if (bed.Configuration.TryCast<MushroomBedConfiguration>() is MushroomBedConfiguration config)
-                {
-#elif MONO
-                if (bed.Configuration is MushroomBedConfiguration config) {
-#endif
-                    config.Spawn.Options.Add(newSpawn);
-                }
-            }
+                AddSpawnToBed(bed, newSpawn);
         }
 
+        /// <summary>
+        /// Adds every currently-known custom mushroom spawn to a single MushroomBed's
+        /// Configuration.Spawn.Options. Called from MushroomBedStartPatch so a bed always has
+        /// the full, up-to-date option list the moment it exists — without this, a bed that
+        /// only came into existence after the last sweep has no valid spawn configured, and
+        /// employees never treat it as ready to work.
+        /// </summary>
+        public static void AddKnownSpawnsToBed(MushroomBed bed)
+        {
+            if (bed == null) return;
+
+            int patched = 0;
+            foreach (UnicornSeedData data in DiscoveredShrooms.Values)
+            {
+                string syringeId = data?.seedId;
+                if (string.IsNullOrEmpty(syringeId)) continue;
+
+                SporeSyringeDefinition syringe = Registry.GetItem<SporeSyringeDefinition>(syringeId);
+                if (syringe?.SpawnDefinition == null) continue;
+
+                if (AddSpawnToBed(bed, syringe.SpawnDefinition)) patched++;
+            }
+
+            if (patched > 0)
+                Utility.Log($"CustomShroomsManager: Whitelisted {patched} custom spawn(s) on bed '{bed.name}' at Start.");
+        }
+
+        /// <summary>
+        /// Adds a custom syringe ID to a single MushroomSpawnStation's SyringeSlot
+        /// ItemFilter_ID whitelist, if not already present. Shared by AddSyringeToSpawnStations
+        /// (one-shot scene sweep) and AddKnownSyringesToSpawnStation (per-instance, called from
+        /// MushroomSpawnStation.Start).
+        /// </summary>
+        private static bool AddSyringeIdToStation(MushroomSpawnStation station, string syringeId)
+        {
+            if (station.SyringeSlot == null) return false;
+
+            bool patched = false;
+            foreach (var filter in station.SyringeSlot.HardFilters)
+            {
+#if IL2CPP
+                ItemFilter_ID idFilter = filter.TryCast<ItemFilter_ID>();
+#elif MONO
+                ItemFilter_ID idFilter = filter as ItemFilter_ID;
+#endif
+                if (idFilter != null && !idFilter.IDs.Contains(syringeId))
+                {
+                    idFilter.IDs.Add(syringeId);
+                    patched = true;
+                }
+            }
+            return patched;
+        }
+
+        /// <summary>
+        /// This only reaches stations that already exist at call time — any station created
+        /// afterwards is caught by AddKnownSyringesToSpawnStation instead, via the
+        /// MushroomSpawnStation.Start patch.
+        /// </summary>
         public static void AddSyringeToSpawnStations(SporeSyringeDefinition newSyringe)
         {
             var stations = GameObject.FindObjectsOfType<MushroomSpawnStation>();
             foreach (MushroomSpawnStation station in stations)
+                AddSyringeIdToStation(station, newSyringe.ID);
+        }
+
+        /// <summary>
+        /// Adds every currently-known custom syringe ID to a single MushroomSpawnStation's
+        /// SyringeSlot filters. Called from MushroomSpawnStationStartPatch so a station always
+        /// has the full, up-to-date whitelist the moment it exists, mirroring
+        /// CocaFactory.AddKnownLeavesToCauldron / CustomSeedsManager.AddKnownSeedsToPot.
+        /// </summary>
+        public static void AddKnownSyringesToSpawnStation(MushroomSpawnStation station)
+        {
+            if (station == null) return;
+
+            int patched = 0;
+            foreach (UnicornSeedData data in DiscoveredShrooms.Values)
             {
-                if (station.SyringeSlot != null)
-                {
-                    // Find the ItemFilter_ID on the syringe slot and add our custom ID
-                    foreach (var filter in station.SyringeSlot.HardFilters)
-                    {
-#if IL2CPP
-                        ItemFilter_ID idFilter = filter.TryCast<ItemFilter_ID>();
-#elif MONO
-                        ItemFilter_ID idFilter = filter as ItemFilter_ID;
-#endif
-                        if (idFilter != null && !idFilter.IDs.Contains(newSyringe.ID))
-                        {
-                            idFilter.IDs.Add(newSyringe.ID);
-                        }
-                    }
-                }
+                string syringeId = data?.seedId;
+                if (string.IsNullOrEmpty(syringeId)) continue;
+
+                if (AddSyringeIdToStation(station, syringeId)) patched++;
             }
+
+            if (patched > 0)
+                Utility.Log($"CustomShroomsManager: Whitelisted {patched} custom syringe(s) on spawn station '{station.name}' at Start.");
         }
 
         public static void CreateShopListing(SporeSyringeDefinition newSyringe, float price = 10f)

@@ -97,54 +97,24 @@ namespace UnicornsCustomSeeds.Managers
         /// </summary>
         public static void InitSupplierWelcome(string npcName, NPCRelationData relationData, DialogueHandler dialogueHandler, string welcomeText)
         {
-            if (!CustomSeedsManager.FirstLoad)
-            {
-                Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): skipped — FirstLoad is false (DiscoveredCustomSeeds.json already existed on load).");
-                return;
-            }
-            if (relationData == null)
-            {
-                Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): skipped — relationData is null.");
-                return;
-            }
-
-            Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): FirstLoad=true, RelationDelta={relationData.RelationDelta}.");
+            if (!CustomSeedsManager.FirstLoad || relationData == null) return;
 
             if (relationData.RelationDelta >= 4f)
             {
-                Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): already unlocked — scheduling delayed welcome message.");
                 MelonCoroutines.Start(GenericWelcomeRoutine(npcName, welcomeText));
             }
             else
             {
-                Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): not yet unlocked — attempting dialogue injection.");
-                InjectWelcomeIntoUnlockDialogue(npcName, dialogueHandler, welcomeText);
+                InjectWelcomeIntoUnlockDialogue(dialogueHandler, welcomeText);
             }
         }
 
-        private static void InjectWelcomeIntoUnlockDialogue(string npcName, DialogueHandler dialogueHandler, string welcomeText)
+        private static void InjectWelcomeIntoUnlockDialogue(DialogueHandler dialogueHandler, string welcomeText)
         {
-            if (dialogueHandler == null)
-            {
-                Utility.Log($"ConversationManager.InjectWelcomeIntoUnlockDialogue({npcName}): dialogueHandler is null.");
-                return;
-            }
-
-            DialogueDatabase db = dialogueHandler.Database;
-            if (db == null)
-            {
-                Utility.Log($"ConversationManager.InjectWelcomeIntoUnlockDialogue({npcName}): dialogueHandler.Database is null.");
-                return;
-            }
+            DialogueDatabase db = dialogueHandler?.Database;
+            if (db == null) return;
 
             var generic = db.GetModule(EDialogueModule.Generic);
-            if (generic == null)
-            {
-                Utility.Log($"ConversationManager.InjectWelcomeIntoUnlockDialogue({npcName}): Generic dialogue module is null.");
-                return;
-            }
-
-            bool foundKey = false;
             for (var i = 0; i < generic.Entries.Count; i++)
             {
 #if IL2CPP
@@ -153,7 +123,6 @@ namespace UnicornsCustomSeeds.Managers
                 if (generic.Entries[i].Key == "supplier_meetings_unlocked")
 #endif
                 {
-                    foundKey = true;
                     Entry supplierEntry = generic.Entries[i];
 
                     DialogueChain chain = supplierEntry.Chains[0];
@@ -165,18 +134,8 @@ namespace UnicornsCustomSeeds.Managers
                         newLines[1] = swap[1];
                         newLines[2] = welcomeText;
                         chain.Lines = newLines;
-                        Utility.Log($"ConversationManager.InjectWelcomeIntoUnlockDialogue({npcName}): injected welcome line into 'supplier_meetings_unlocked' chain (entry {i}).");
-                    }
-                    else
-                    {
-                        Utility.Log($"ConversationManager.InjectWelcomeIntoUnlockDialogue({npcName}): found 'supplier_meetings_unlocked' (entry {i}) but chain was null or already contains the welcome line.");
                     }
                 }
-            }
-
-            if (!foundKey)
-            {
-                Utility.Log($"ConversationManager.InjectWelcomeIntoUnlockDialogue({npcName}): no 'supplier_meetings_unlocked' entry found in {generic.Entries.Count} Generic module entries — this NPC likely uses a different key/module.");
             }
         }
 

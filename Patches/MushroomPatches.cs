@@ -5,8 +5,10 @@ using UnicornsCustomSeeds.TemplateUtils;
 
 #if IL2CPP
 using Il2CppScheduleOne.ObjectScripts;
+using Il2CppScheduleOne.StationFramework;
 #elif MONO
 using ScheduleOne.ObjectScripts;
+using ScheduleOne.StationFramework;
 #endif
 
 namespace UnicornsCustomSeeds.Patches

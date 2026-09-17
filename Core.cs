@@ -61,6 +61,12 @@ namespace UnicornsCustomSeeds
 
         public override void OnInitializeMelon()
         {
+            // Must run before any JsonConvert call in the mod — see SafeJsonContractResolver.cs.
+            JsonConvert.DefaultSettings = () => new JsonSerializerSettings
+            {
+                ContractResolver = new SafeContractResolver()
+            };
+
             AssetBundleUtils.Initialize(this);
         }
 

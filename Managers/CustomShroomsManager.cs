@@ -89,6 +89,8 @@ namespace UnicornsCustomSeeds.Managers
                 if (phil.MSGConversation != null)
                     ConversationManager.RegisterConversation("Phil", phil.MSGConversation);
 
+                ConversationManager.InitSupplierWelcome("Phil", phil.RelationData, phil.DialogueHandler, ConversationManager.PhilWelcomeMessage);
+
                 ShroomQuestManager.Init();
 
                 // Reload any syringes that were discovered in a previous session

@@ -90,6 +90,8 @@ namespace UnicornsCustomSeeds.Managers
                 if (shirley.MSGConversation != null)
                     ConversationManager.RegisterConversation("Shirley", shirley.MSGConversation);
 
+                ConversationManager.InitSupplierWelcome("Shirley", shirley.RelationData, shirley.DialogueHandler, ConversationManager.ShirleyWelcomeMessage);
+
                 ShirleyShop = shirley.Shop;
                 if (ShirleyShop == null)
                     Utility.Error("CustomPseudoManager: Shirley's shop is null!");

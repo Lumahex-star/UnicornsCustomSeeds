@@ -72,6 +72,7 @@
 		<Compile Include="Seeds\SeedVialLabel.cs" />
 		<Compile Include="Managers\StashManager.cs" />
 		<Compile Include="TemplateUtils\AssetBundleUtils.cs" />
+		<Compile Include="TemplateUtils\SafeJsonContractResolver.cs" />
 		<Compile Include="TemplateUtils\Utility.cs" />
 		<Folder Include="Assets\" />
 		<EmbeddedResource Include="Assets\customshaders" />

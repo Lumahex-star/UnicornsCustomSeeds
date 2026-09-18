@@ -89,7 +89,7 @@ namespace UnicornsCustomSeeds.Managers
                 if (phil.MSGConversation != null)
                     ConversationManager.RegisterConversation("Phil", phil.MSGConversation);
 
-                ConversationManager.InitSupplierWelcome("Phil", phil.RelationData, phil.DialogueHandler, ConversationManager.PhilWelcomeMessage);
+                ConversationManager.InitSupplierWelcome("Phil", phil.RelationData, phil.DialogueHandler, ConversationManager.PhilWelcomeMessage, DiscoveredShrooms.Count > 0);
 
                 ShroomQuestManager.Init();
 

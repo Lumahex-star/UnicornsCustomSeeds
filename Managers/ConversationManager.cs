@@ -45,7 +45,7 @@ namespace UnicornsCustomSeeds.Managers
                     albertRelation = albert.RelationData;
                 }
 
-                if (CustomSeedsManager.FirstLoad && albert.RelationData != null)
+                if (CustomSeedsManager.DiscoveredSeeds.Count == 0 && albert.RelationData != null)
                 {
                     if (albert.RelationData.RelationDelta >= 4f)
                     {
@@ -95,11 +95,11 @@ namespace UnicornsCustomSeeds.Managers
         /// player reaches it normally. Silently does nothing if that entry isn't found on a
         /// given NPC's dialogue database.
         /// </summary>
-        public static void InitSupplierWelcome(string npcName, NPCRelationData relationData, DialogueHandler dialogueHandler, string welcomeText)
+        public static void InitSupplierWelcome(string npcName, NPCRelationData relationData, DialogueHandler dialogueHandler, string welcomeText, bool alreadyDiscoveredForThisSupplier)
         {
-            if (!CustomSeedsManager.FirstLoad)
+            if (alreadyDiscoveredForThisSupplier)
             {
-                Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): skipped — FirstLoad is false (DiscoveredCustomSeeds.json already existed on load).");
+                Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): skipped — player has already discovered a custom item from this supplier, welcome no longer needed.");
                 return;
             }
             if (relationData == null)
@@ -108,7 +108,7 @@ namespace UnicornsCustomSeeds.Managers
                 return;
             }
 
-            Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): FirstLoad=true, RelationDelta={relationData.RelationDelta}.");
+            Utility.Log($"ConversationManager.InitSupplierWelcome({npcName}): not yet discovered, RelationDelta={relationData.RelationDelta}.");
 
             if (relationData.RelationDelta >= 4f)
             {

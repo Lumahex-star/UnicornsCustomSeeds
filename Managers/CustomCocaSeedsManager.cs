@@ -103,7 +103,7 @@ namespace UnicornsCustomSeeds.Managers
                 if (salvador.MSGConversation != null)
                     ConversationManager.RegisterConversation("Salvador", salvador.MSGConversation);
 
-                ConversationManager.InitSupplierWelcome("Salvador", salvador.RelationData, salvador.DialogueHandler, ConversationManager.SalvadorWelcomeMessage);
+                ConversationManager.InitSupplierWelcome("Salvador", salvador.RelationData, salvador.DialogueHandler, ConversationManager.SalvadorWelcomeMessage, DiscoveredCocaSeeds.Count > 0);
 
                 CocaQuestManager.Init();
 

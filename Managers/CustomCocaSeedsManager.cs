@@ -70,7 +70,22 @@ namespace UnicornsCustomSeeds.Managers
         public static ShopInterface SalvadorShop = null;
         public static Salvador salvador = null;
 
+        /// <summary>
+        /// See CustomSeedsManager.Initialize — this runs on the shared
+        /// LoadManager.onLoadComplete UnityEvent, where an escaping exception would abort
+        /// the remaining listeners and hang a client's load.
+        /// </summary>
         public static void Initialize()
+        {
+            try { InitializeInternal(); }
+            catch (Exception e)
+            {
+                Utility.Error("CustomCocaSeedsManager.Initialize failed — continuing so other listeners still run.");
+                Utility.PrintException(e);
+            }
+        }
+
+        private static void InitializeInternal()
         {
             // Restore cauldron leaf filters for all previously discovered coca seeds.
             // Must run before Salvador setup so filters are in place regardless of
@@ -88,7 +103,9 @@ namespace UnicornsCustomSeeds.Managers
                 if (salvador.MSGConversation != null)
                     ConversationManager.RegisterConversation("Salvador", salvador.MSGConversation);
 
-                //CocaQuestManager.Init();
+                ConversationManager.InitSupplierWelcome("Salvador", salvador.RelationData, salvador.DialogueHandler, ConversationManager.SalvadorWelcomeMessage, DiscoveredCocaSeeds.Count > 0);
+
+                CocaQuestManager.Init();
 
                 foreach (var kvp in DiscoveredCocaSeeds)
                 {
@@ -171,7 +188,7 @@ namespace UnicornsCustomSeeds.Managers
                 Utility.Error("CustomCocaSeedsManager: No available dead drop for coca seed placement, or not server.");
             }
 
-            //NetworkSyncManager.Broadcast(newData);
+            NetworkSyncManager.Broadcast(newData);
         }
 
 #if IL2CPP

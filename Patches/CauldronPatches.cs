@@ -9,11 +9,13 @@ using MelonLoader;
 
 
 #if IL2CPP
+using Il2CppFishNet;
 using Il2CppScheduleOne;
 using Il2CppScheduleOne.DevUtilities;
 using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.ObjectScripts;
 #elif MONO
+using FishNet;
 using ScheduleOne;
 using ScheduleOne.DevUtilities;
 using ScheduleOne.ItemFramework;
@@ -68,6 +70,14 @@ namespace UnicornsCustomSeeds.Patches
 
             try
             {
+    // ── A0) Whitelist every already-discovered custom coca leaf ───────
+    // Cauldron.Start fires for every instance regardless of when it comes
+    // into existence (initial load, mid-session placement, network
+    // rebuild), unlike the one-shot FindObjectsOfType sweeps in
+    // CocaFactory.AddLeafToCauldrons callers — so patching here guarantees
+    // this specific cauldron always has the current whitelist.
+    CocaFactory.AddKnownLeavesToCauldron(__instance);
+
     // ── A) onCookEnd cleanup listener ─────────────────────────────────
   var cauldron = __instance;
     cauldron.onCookEnd.AddListener(new Action(() =>
@@ -197,6 +207,26 @@ namespace UnicornsCustomSeeds.Patches
                         {
                             ActiveCookingRegistry.Register(__instance.GUID.ToString(), mixId);
                             Utility.Log($"CauldronPatches: Registered active cook GUID={__instance.GUID} mixId={mixId}.");
+
+                            // The swap above is LOCAL ONLY. CauldronTask.Success() is a
+                            // PlayerTask, so on a client cook this whole method runs only on
+                            // that client — the server never elects the leaf and never swaps
+                            // its own CocaineBaseDefinition. But the output is created
+                            // server-side:
+                            //
+                            //   RpcLogic___FinishCookOperation_2166136261()
+                            //       if (InstanceFinder.IsServer)
+                            //           this.CocaineBaseDefinition.GetDefaultInstance(10)
+                            //
+                            // so a client cook produced vanilla cocaine base. (Meth is
+                            // unaffected: ChemistryStation sends a ChemistryCookOperation
+                            // that carries the recipe, and the recipe carries the product, so
+                            // it travels as data. Cauldron sends only cookTime + quality.)
+                            //
+                            // Tell the server which mix this cauldron is cooking so it can
+                            // swap its own copy before the cook completes.
+                            if (!InstanceFinder.IsServer)
+                                NetworkSyncManager.BroadcastCauldronCook(__instance.GUID.ToString(), mixId);
                         }
                     }
                     else

@@ -79,7 +79,25 @@ namespace UnicornsCustomSeeds.Managers
 #endif
 
         public static bool FirstLoad = false;
+        /// <summary>
+        /// Runs from LoadManager.onLoadComplete — a UnityEvent shared with the game's own
+        /// deferred loaders (ConfigurationReplicator queues pending field applications onto
+        /// it during load). UnityEvent.Invoke does not isolate listeners, so an exception
+        /// escaping here aborts every listener registered after us. On a client that kills
+        /// LoadManager's LoadRoutine and hangs the loading screen permanently, with a stack
+        /// pointing at whichever unrelated listener came next. Contain failures here.
+        /// </summary>
         public static void Initialize()
+        {
+            try { InitializeInternal(); }
+            catch (Exception e)
+            {
+                Utility.Error("CustomSeedsManager.Initialize failed — continuing so other listeners still run.");
+                Utility.PrintException(e);
+            }
+        }
+
+        private static void InitializeInternal()
         {
             var shopInterfaces = UnityEngine.Object.FindObjectsOfType<ShopInterface>();
             foreach (ShopInterface shopInterface in shopInterfaces)
@@ -118,7 +136,6 @@ namespace UnicornsCustomSeeds.Managers
                         if (weedDef != null)
                         {
                             var cost = StashManager.GetIngredientCost(weedDef);
-
                             if (seed.Value.variants.Count > 0)
                                 seed.Value.variants[0].price = cost;
                             customDef.BasePurchasePrice = cost;
@@ -413,20 +430,76 @@ namespace UnicornsCustomSeeds.Managers
             }
         }
 
+        /// <summary>
+        /// Adds a custom SeedDefinition to a single Pot's Configuration.Seed.Options list,
+        /// if not already present. Shared by AddSeedToPots (one-shot scene sweep) and
+        /// AddKnownSeedsToPot (per-instance, called from Pot.Start).
+        /// </summary>
+        private static bool AddSeedToPot(Pot pot, SeedDefinition seed)
+        {
+#if IL2CPP
+            if (!(pot.Configuration.TryCast<PotConfiguration>() is PotConfiguration config))
+                return false;
+#elif MONO
+            if (!(pot.Configuration is PotConfiguration config))
+                return false;
+#endif
+            if (config.Seed.Options.Contains(seed)) return false;
+
+            config.Seed.Options.Add(seed);
+            return true;
+        }
+
+        /// <summary>
+        /// Adds a custom SeedDefinition to every Pot currently in the scene's
+        /// Configuration.Seed.Options list. Call this after the seed has been registered.
+        ///
+        /// This only reaches Pots that already exist at call time — any Pot created
+        /// afterwards (placed by the player, rebuilt on a network client, recreated when a
+        /// save is loaded, etc.) is caught by AddKnownSeedsToPot instead, via the Pot.Start
+        /// patch — without it, botanists treat such a pot as having no valid seed configured
+        /// and never fetch matching items from storage, appearing to "not recognize" them.
+        /// </summary>
         public static void AddSeedToPots(SeedDefinition newSeed)
         {
             var pots = GameObject.FindObjectsOfType<Pot>();
             foreach (Pot pot in pots)
+                AddSeedToPot(pot, newSeed);
+        }
+
+        /// <summary>
+        /// Adds every currently-known custom SeedDefinition — both weed seeds and coca
+        /// seeds, since both are planted in Pots — to a single Pot's Configuration.Seed.Options.
+        /// Called from PotStartPatch so a Pot always has the full, up-to-date option list the
+        /// moment it exists, regardless of whether it was already in the scene when
+        /// AddSeedToPots last ran (see that method's remarks).
+        /// </summary>
+        public static void AddKnownSeedsToPot(Pot pot)
+        {
+            if (pot == null) return;
+
+            int patched = 0;
+            patched += AddDiscoveredSeedsToPot(pot, DiscoveredSeeds.Values);
+            patched += AddDiscoveredSeedsToPot(pot, CustomCocaSeedsManager.DiscoveredCocaSeeds.Values);
+
+            if (patched > 0)
+                Utility.Log($"CustomSeedsManager: Whitelisted {patched} custom seed(s) on pot '{pot.name}' at Start.");
+        }
+
+        private static int AddDiscoveredSeedsToPot(Pot pot, IEnumerable<UnicornSeedData> discovered)
+        {
+            int patched = 0;
+            foreach (UnicornSeedData data in discovered)
             {
-#if IL2CPP
-                if (pot.Configuration.TryCast<PotConfiguration>() is PotConfiguration config)
-                {
-#elif MONO
-                if (pot.Configuration is PotConfiguration config) {
-#endif
-                    config.Seed.Options.Add(newSeed);
-                }
+                string seedId = data?.seedId;
+                if (string.IsNullOrEmpty(seedId)) continue;
+
+                SeedDefinition seed = Registry.GetItem<SeedDefinition>(seedId);
+                if (seed == null) continue;
+
+                if (AddSeedToPot(pot, seed)) patched++;
             }
+            return patched;
         }
 
         public static void SeedFactoryLoader()

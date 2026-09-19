@@ -16,8 +16,8 @@ namespace UnicornsCustomSeeds.Patches
 {
     public class ProductManagerAppPatches
     {
-        private static bool isPrefabInitialized = false;
         private static List<GameObject> pendingIndicators = new List<GameObject>();
+        private static bool isPrefabInitialized = false;
 
         [HarmonyPatch(typeof(ProductManagerApp))]
         public static class ProductManagerApp_Patch
@@ -26,8 +26,16 @@ namespace UnicornsCustomSeeds.Patches
             [HarmonyPatch(nameof(ProductManagerApp.Start))]
             public static bool StartPatch(ProductManagerApp __instance)
             {
+                if (__instance == null || __instance.EntryPrefab == null)
+                    return true;
 
-                if (__instance != null && __instance.EntryPrefab != null && __instance.EntryPrefab.transform.Find("SeedIndicator") == null)
+                if (__instance.EntryPrefab.transform.Find("SeedIndicator") != null)
+                {
+                    isPrefabInitialized = true;
+                    return true;
+                }
+
+                if (!isPrefabInitialized)
                 {
                     var parent = new GameObject("Temp");
                     parent.SetActive(false);
@@ -96,7 +104,7 @@ namespace UnicornsCustomSeeds.Patches
             try
             {
                 // Ensure sprite is loaded
-                if (SeedVisualsManager.seedIcon == null)
+                if (SeedVisualsManager.baseQuestIconSprite == null)
                 {
                     SeedVisualsManager.LoadSeedMaterial();
                 }
@@ -105,9 +113,9 @@ namespace UnicornsCustomSeeds.Patches
 
                 if (labelImage != null)
                 {
-                    if (SeedVisualsManager.seedIcon != null)
+                    if (SeedVisualsManager.baseQuestIconSprite != null)
                     {
-                        labelImage.sprite = SeedVisualsManager.seedIcon;
+                        labelImage.sprite = SeedVisualsManager.baseQuestIconSprite;
                         labelImage.color = Color.white;
                     }
                     else
@@ -143,9 +151,9 @@ namespace UnicornsCustomSeeds.Patches
                 try
                 {
                     Image labelImage = indicator.transform.GetChild(0).GetComponent<Image>();
-                    if (labelImage != null && SeedVisualsManager.seedIcon != null)
+                    if (labelImage != null && SeedVisualsManager.baseQuestIconSprite != null)
                     {
-                        labelImage.sprite = SeedVisualsManager.seedIcon;
+                        labelImage.sprite = SeedVisualsManager.baseQuestIconSprite;
                         labelImage.color = Color.white;
                         pendingIndicators.RemoveAt(i);
                     }

@@ -29,6 +29,10 @@ namespace UnicornsCustomSeeds.Managers
         public static NPCRelationData albertRelation;
         public static string welcomeMessage = "A <color='#FA2FBD'><b>Unicorn</b></color> I know can synthesize your custom mixes into seeds. If you'd like to use that service, send me a text.";
 
+        public const string PhilWelcomeMessage = "A <color='#FA2FBD'><b>Unicorn</b></color> I know can synthesize your custom shroom mixes into spore syringes. If you'd like to use that service, send me a text.";
+        public const string SalvadorWelcomeMessage = "A <color='#FA2FBD'><b>Unicorn</b></color> I know can synthesize your custom cocaine mixes into coca seeds. If you'd like to use that service, send me a text.";
+        public const string ShirleyWelcomeMessage = "A <color='#FA2FBD'><b>Unicorn</b></color> I know can synthesize your custom meth mixes into pseudo. If you'd like to use that service, send me a text.";
+
         public static void Init()
         {
             // Find Albert
@@ -41,38 +45,16 @@ namespace UnicornsCustomSeeds.Managers
                     albertRelation = albert.RelationData;
                 }
 
-                if (CustomSeedsManager.FirstLoad && albert.RelationData != null)
+                if (!WelcomedSuppliersRegistry.HasBeenWelcomed("Albert") && albert.RelationData != null)
                 {
                     if (albert.RelationData.RelationDelta >= 4f)
                     {
+                        WelcomedSuppliersRegistry.MarkWelcomed("Albert");
                         MelonCoroutines.Start(WelcomeRoutine());
                     }
-                    else
+                    else if (InjectWelcomeIntoUnlockDialogue(albert.DialogueHandler, welcomeMessage))
                     {
-                        DialogueDatabase db = albert.DialogueHandler.Database;
-                        var generic = db.GetModule(EDialogueModule.Generic);
-                        for (var i = 0; i < generic.Entries.Count; i++)
-                        {
-#if IL2CPP
-                            if (generic.Entries[i] != null && generic.Entries[i].Key == "supplier_meetings_unlocked")
-#elif MONO
-                            if (generic.Entries[i].Key == "supplier_meetings_unlocked")
-#endif
-                            {
-                                Entry supplierEntry = generic.Entries[i];
-
-                                DialogueChain chain = supplierEntry.Chains[0];
-                                if (chain != null && chain.Lines[chain.Lines.Length - 1] != welcomeMessage)
-                                {
-                                    string[] swap = chain.Lines;
-                                    string[] newLines = new string[swap.Length + 1];
-                                    newLines[0] = swap[0];
-                                    newLines[1] = swap[1];
-                                    newLines[2] = welcomeMessage;
-                                    chain.Lines = newLines;
-                                }
-                            }
-                        }
+                        WelcomedSuppliersRegistry.MarkWelcomed("Albert");
                     }
                 }
             }
@@ -80,6 +62,71 @@ namespace UnicornsCustomSeeds.Managers
             {
                 Utility.Error("ConversationManager: Could not find Albert or his conversation.");
             }
+        }
+
+        /// <summary>
+        /// Same proactive "you can synthesize" announcement Albert gets (see the tail of
+        /// Init() above), generalized so Phil, Salvador and Shirley can use it too: if the
+        /// relationship is already unlocked, send the welcome text after a short delay;
+        /// otherwise inject it as an extra line onto the NPC's own "supplier_meetings_unlocked"
+        /// dialogue entry so it's delivered as part of that unlock conversation whenever the
+        /// player reaches it normally. Silently does nothing if that entry isn't found on a
+        /// given NPC's dialogue database.
+        /// </summary>
+        public static void InitSupplierWelcome(string npcName, NPCRelationData relationData, DialogueHandler dialogueHandler, string welcomeText, bool alreadyDiscoveredForThisSupplier)
+        {
+            if (alreadyDiscoveredForThisSupplier || WelcomedSuppliersRegistry.HasBeenWelcomed(npcName) || relationData == null) return;
+
+            if (relationData.RelationDelta >= 4f)
+            {
+                WelcomedSuppliersRegistry.MarkWelcomed(npcName);
+                MelonCoroutines.Start(GenericWelcomeRoutine(npcName, welcomeText));
+            }
+            else if (InjectWelcomeIntoUnlockDialogue(dialogueHandler, welcomeText))
+            {
+                WelcomedSuppliersRegistry.MarkWelcomed(npcName);
+            }
+        }
+
+        /// <summary>Returns true if the "supplier_meetings_unlocked" entry was found (and the
+        /// welcome line is now present in its chain, whether it was just added or already there).</summary>
+        private static bool InjectWelcomeIntoUnlockDialogue(DialogueHandler dialogueHandler, string welcomeText)
+        {
+            DialogueDatabase db = dialogueHandler?.Database;
+            if (db == null) return false;
+
+            var generic = db.GetModule(EDialogueModule.Generic);
+            bool found = false;
+            for (var i = 0; i < generic.Entries.Count; i++)
+            {
+#if IL2CPP
+                if (generic.Entries[i] != null && generic.Entries[i].Key == "supplier_meetings_unlocked")
+#elif MONO
+                if (generic.Entries[i].Key == "supplier_meetings_unlocked")
+#endif
+                {
+                    found = true;
+                    Entry supplierEntry = generic.Entries[i];
+
+                    DialogueChain chain = supplierEntry.Chains[0];
+                    if (chain != null && chain.Lines[chain.Lines.Length - 1] != welcomeText)
+                    {
+                        string[] swap = chain.Lines;
+                        string[] newLines = new string[swap.Length + 1];
+                        newLines[0] = swap[0];
+                        newLines[1] = swap[1];
+                        newLines[2] = welcomeText;
+                        chain.Lines = newLines;
+                    }
+                }
+            }
+            return found;
+        }
+
+        private static IEnumerator GenericWelcomeRoutine(string npcName, string welcomeText)
+        {
+            yield return new WaitForSeconds(10f);
+            SendMessage(npcName, welcomeText);
         }
 
         public static void RegisterConversation(string name, MSGConversation convo)

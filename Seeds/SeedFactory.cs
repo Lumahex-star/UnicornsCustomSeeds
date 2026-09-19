@@ -333,7 +333,8 @@ namespace UnicornsCustomSeeds.Seeds
             if (SeedVisualsManager.baseSeedSprite != null) {
                 try
                 {
-                    Sprite newIcon = SeedVisualsManager.GenerateSpriteWithGradient(weedAppearance.MainColor, weedAppearance.SecondaryColor);
+                    Sprite newIcon = SeedVisualsManager.GenerateIconWithKeyColorFill(
+                        SeedVisualsManager.baseSeedSprite, weedAppearance.MainColor, weedAppearance.SecondaryColor, SeedVisualsManager.FillKeyColor);
                     newIcon.name = newSeedDef.name + "_icon";
                     SeedVisualsManager.seedIcons.Add(newSeedDef.ID, newIcon);
                     newSeedDef.Icon = newIcon;

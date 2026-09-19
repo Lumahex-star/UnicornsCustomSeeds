@@ -267,6 +267,9 @@ namespace UnicornsCustomSeeds.TemplateUtils
             return asset;
         }
 
+        // Loads the first Texture2D in the bundle whose (lowercased) asset path contains ALL of the
+        // given substrings. Handles path/case/extension differences (e.g. "asphalt","diff" matches
+        // "assets/assebundle/road_asphalt1_diff.png"). Returns null if none match.
         public static Texture2D LoadTextureContaining(string bundleName, params string[] contains)
         {
             var bundle = GetLoadedAssetBundle(bundleName);

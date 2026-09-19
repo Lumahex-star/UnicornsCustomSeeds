@@ -6,6 +6,7 @@ using UnicornsCustomSeeds.TemplateUtils;
 
 
 #if IL2CPP
+using Il2CppFishNet;
 using Il2CppScheduleOne;
 using Il2CppScheduleOne.Growing;
 using Il2CppScheduleOne.DevUtilities;
@@ -14,10 +15,11 @@ using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.Management;
 using Il2CppScheduleOne.Product;
 #elif MONO
+using FishNet;
 using ScheduleOne;
-using ScheduleOne.Growing;
 using ScheduleOne.DevUtilities;
 using ScheduleOne.Economy;
+using ScheduleOne.Growing;
 using ScheduleOne.ItemFramework;
 using ScheduleOne.Management;
 using ScheduleOne.Product;
@@ -39,6 +41,7 @@ namespace UnicornsCustomSeeds.Managers
         public static MelonPreferences_Entry<int> StashCostEntry;
         public static MelonPreferences_Entry<int> StashQtyEntry;
         public static MelonPreferences_Entry<int> SynthesizeTime;
+        public static MelonPreferences_Entry<bool> SyncNonWeedDrugs;
 
         public static void InitializeConfig()
         {
@@ -46,10 +49,23 @@ namespace UnicornsCustomSeeds.Managers
             StashCostEntry = ConfigCategory.CreateEntry("StashCostRequirement", 500, "Stash Cost Requirement", "The price that Albert charges to synthesize seeds");
             StashQtyEntry = ConfigCategory.CreateEntry("StashQtyRequirement", 20, "Stash Quantity Requirement", "The quantity of weed that needs to be provided of a certain mix");
             SynthesizeTime = ConfigCategory.CreateEntry("SynthesizeTime", 30, "Synthesize Time", "Time in secondsd that it will take for Albert to synthesize a seed");
+            SyncNonWeedDrugs = ConfigCategory.CreateEntry("SyncNonWeedDrugs", true, "Sync Coca/Shroom/Pseudo In Multiplayer", "Kill switch for the coca/shroom/pseudo multiplayer sync. Set false to disable it entirely (weed sync is unaffected) when diagnosing client-side crashes.");
+        }
+
+        public static SupplierStash GetSupplierStash()
+        {
+            if (albertsStash != null)
+            {
+                return albertsStash;
+            }
+            GetAlbertsStash();
+            return albertsStash;
         }
 
         public static void GetAlbertsStash()
         {
+            if (albertsStash != null) return;
+
             var temp = UnityEngine.Object.FindObjectsOfType<SupplierStash>();
             foreach (SupplierStash stash in temp)
             {
@@ -61,6 +77,42 @@ namespace UnicornsCustomSeeds.Managers
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Polls once per frame until all four supplier stashes are found and
+        /// subscribed, instead of relying on a fixed number of one-shot scans
+        /// at arbitrary points in the load sequence. Started once from
+        /// Core.InitMod(). Idempotent — each Get*Stash() call is a no-op once
+        /// its stash is already cached, so re-entering this loop (e.g. after a
+        /// second onLoadComplete in the same session) only retries suppliers
+        /// that are still unresolved.
+        /// </summary>
+        public static System.Collections.IEnumerator WaitForAllStashesAndSubscribe()
+        {
+            int timeoutFrames = 1800; // ~30 seconds at 60 fps — hard bail-out
+            while (timeoutFrames-- > 0)
+            {
+                if (albertsStash == null) GetAlbertsStash();
+                if (PhilStashManager.philsStash == null) PhilStashManager.GetPhilsStash();
+                if (SalvadorStashManager.salvadorsStash == null) SalvadorStashManager.GetSalvadorsStash();
+                if (ShirleyStashManager.shirleysStash == null) ShirleyStashManager.GetShirleysStash();
+
+                if (albertsStash != null && PhilStashManager.philsStash != null &&
+                    SalvadorStashManager.salvadorsStash != null && ShirleyStashManager.shirleysStash != null)
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+
+            if (albertsStash == null) Utility.Error("StashManager: Timed out waiting for Albert's stash.");
+            if (PhilStashManager.philsStash == null) Utility.Error("StashManager: Timed out waiting for Phil's stash.");
+            if (SalvadorStashManager.salvadorsStash == null) Utility.Error("StashManager: Timed out waiting for Salvador's stash.");
+            if (ShirleyStashManager.shirleysStash == null) Utility.Error("StashManager: Timed out waiting for Shirley's stash.");
+
+            Core.ModInitialized = true;
         }
 
         public static void AlbertsStashClosed()
@@ -167,8 +219,23 @@ namespace UnicornsCustomSeeds.Managers
             return DeepSearchRecipe(product);
         }
 
+        /// <summary>
+        /// Host-authoritative: walks a product's full recipe tree, which is only
+        /// guaranteed complete on the server/host. A pure client's mixes may not have
+        /// their Recipes replicated yet (e.g. right after a [NET-JSON] custom-seed
+        /// payload arrives but before the vanilla CreateMixRecipe RPC lands), which
+        /// previously caused DeepSearchRecursive to misclassify an unsynced mix as its
+        /// own base strain and NRE. Callers on a client should use a price that was
+        /// already computed server-side and sent over the wire instead of calling this.
+        /// </summary>
         public static float GetIngredientCost(ProductDefinition product)
         {
+            if (!InstanceFinder.IsServer)
+            {
+                Utility.Error($"StashManager.GetIngredientCost: called on a non-server client for '{product?.ID}' — this is host-authoritative and should not run here. Returning 0.");
+                return 0f;
+            }
+
             if (ingredientCostCache.ContainsKey(product.ID)) return ingredientCostCache[product.ID];
 
             var ingredients = GetRecipe(product);
@@ -210,10 +277,10 @@ namespace UnicornsCustomSeeds.Managers
                     totalCost += ingredient.BasePurchasePrice;
                     continue;
                 }
-
+								
                 SeedDefinition seed = ResolveSeedForProduct(product);
                 if (seed != null)
-                {
+								{
                     totalCost += seed.BasePurchasePrice;
                 }
                 else

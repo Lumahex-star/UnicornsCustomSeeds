@@ -22,6 +22,27 @@ namespace UnicornsCustomSeeds.Managers
         }
         public static bool IsReplaying = false;
 
+        /// <summary>
+        /// ID suffixes for seeds that are planted in a Pot and therefore ride the
+        /// Pot.PlantSeed_Client RPC. Coca uses the same path as weed, so a joining
+        /// client can receive a pot's plant RPC before the seed definition arrives.
+        /// Pseudo and shrooms are NOT here — neither is pot-planted.
+        /// </summary>
+        private static readonly string[] PotPlantedSeedMarkers =
+        {
+            "customseeddefinition", // weed
+            "customcocaseed",       // coca
+        };
+
+        /// <summary>True if the ID belongs to a custom seed planted via a Pot.</summary>
+        public static bool IsPotPlantedCustomSeed(string seedId)
+        {
+            if (string.IsNullOrEmpty(seedId)) return false;
+            foreach (string marker in PotPlantedSeedMarkers)
+                if (seedId.Contains(marker)) return true;
+            return false;
+        }
+
         public static HashSet<string> PendingPotGuids = new HashSet<string>();
         public static Dictionary<string, List<DeferredSeedData>> seedsToLoad = new Dictionary<string, List<DeferredSeedData>>();
         public static Dictionary<string, List<HarvestableUpdateData>> DeferredHarvestables = new Dictionary<string, List<HarvestableUpdateData>>();

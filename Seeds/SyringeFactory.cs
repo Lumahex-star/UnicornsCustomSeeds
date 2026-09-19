@@ -54,7 +54,7 @@ namespace UnicornsCustomSeeds.Seeds
             newSyringe.name = newSyringe.ID;
             newSyringe.Name = $"{shroomDef.name} Spore Syringe";
 
-            // Use the original ShroomDefinition directly � it's already registered and initialized
+            // Use the original ShroomDefinition directly � it's already registered and initialized
             ShroomSpawnDefinition clonedSpawnDef = CloneSpawnDefinition(shroomDef.ID, shroomDef);
             newSyringe.SpawnDefinition = clonedSpawnDef;
 
@@ -63,7 +63,98 @@ namespace UnicornsCustomSeeds.Seeds
             Singleton<Registry>.Instance.AddToRegistry(clonedSpawnDef);
             Utility.Log($"Registered ShroomSpawnDefinition: {clonedSpawnDef.ID}");
 
+            AssignShroomIcons(newSyringe, clonedSpawnDef, shroomDef);
+
             return newSyringe;
+        }
+
+        /// <summary>
+        /// Generates per-mix coloured icons for both the syringe (player-carried item) and the
+        /// spawn definition (used when applying to a MushroomBed) from the shroom mix's
+        /// appearance settings. Mirrors CocaFactory's icon-assignment shape. Note
+        /// ShroomAppearanceSettings uses PrimaryColor/SecondaryColor, not MainColor/SecondaryColor
+        /// like weed/coca/pseudo.
+        /// </summary>
+        private void AssignShroomIcons(SporeSyringeDefinition syringe, ShroomSpawnDefinition spawnDef, ShroomDefinition shroomDef)
+        {
+            ShroomAppearanceSettings appearance = shroomDef.AppearanceSettings;
+            if (appearance == null || appearance.IsUnintialized())
+                appearance = ShroomDefinition.GetAppearanceSettings(shroomDef.Properties);
+
+            if (appearance == null)
+            {
+                Utility.Error($"SyringeFactory: No appearance settings for '{shroomDef.ID}' — keeping base icons.");
+                return;
+            }
+
+            (Color top, Color bottom) = PickMostDistinctPair(appearance);
+
+            if (SeedVisualsManager.baseSyringeSprite != null)
+            {
+                try
+                {
+                    Sprite newIcon = SeedVisualsManager.GenerateIconWithKeyColorFill(
+                        SeedVisualsManager.baseSyringeSprite, top, bottom, SeedVisualsManager.FillKeyColor);
+                    if (newIcon != null)
+                    {
+                        newIcon.name = syringe.name + "_icon";
+                        SeedVisualsManager.seedIcons[syringe.ID] = newIcon;
+                        syringe.Icon = newIcon;
+                    }
+                }
+                catch (Exception e)
+                {
+                    syringe.Icon = SeedVisualsManager.baseSyringeSprite;
+                    Utility.PrintException(e);
+                }
+            }
+
+            if (SeedVisualsManager.baseShroomSpawnSprite != null)
+            {
+                try
+                {
+                    Sprite newIcon = SeedVisualsManager.GenerateIconWithKeyColorFill(
+                        SeedVisualsManager.baseShroomSpawnSprite, top, bottom, SeedVisualsManager.FillKeyColor);
+                    if (newIcon != null)
+                    {
+                        newIcon.name = spawnDef.name + "_icon";
+                        SeedVisualsManager.seedIcons[spawnDef.ID] = newIcon;
+                        spawnDef.Icon = newIcon;
+                    }
+                }
+                catch (Exception e)
+                {
+                    spawnDef.Icon = SeedVisualsManager.baseShroomSpawnSprite;
+                    Utility.PrintException(e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Shrooms have 3 candidate colors (Primary/Secondary always set, Spots only when
+        /// HasSpots is true) but the icon gradient only uses 2. Primary+Secondary can end up
+        /// nearly identical for some mixes, producing a flat, low-contrast gradient — so when
+        /// spots are available, pick whichever of the 3 possible pairs has the most contrast
+        /// (largest RGB distance) instead of always defaulting to Primary+Secondary.
+        /// </summary>
+        private (Color top, Color bottom) PickMostDistinctPair(ShroomAppearanceSettings appearance)
+        {
+            Color primary = appearance.PrimaryColor;
+            Color secondary = appearance.SecondaryColor;
+
+            if (!appearance.HasSpots)
+                return (primary, secondary);
+
+            Color spots = appearance.SpotsColor;
+            float primarySecondary = SeedVisualsManager.ColorDistanceRgb(primary, secondary);
+            float primarySpots = SeedVisualsManager.ColorDistanceRgb(primary, spots);
+            float secondarySpots = SeedVisualsManager.ColorDistanceRgb(secondary, spots);
+
+            float best = Mathf.Max(primarySecondary, Mathf.Max(primarySpots, secondarySpots));
+
+            if (best == primarySpots) return (primary, spots);
+            if (best == secondarySpots) return (secondary, spots);
+            return (primary, secondary);
         }
 
         private ShroomSpawnDefinition CloneSpawnDefinition(string shroomId, ShroomDefinition shroomDef)

@@ -107,6 +107,13 @@ namespace UnicornsCustomSeeds.Managers
 
                 CocaQuestManager.Init();
 
+                // salvador.MSGConversation can still be null here — NPC message
+                // conversations aren't always created yet when LoadManager.onLoadComplete
+                // fires. Without this, CocaQuestManager.Init() silently skips creating the
+                // "Synthesize Coca" sendable and Salvador never offers it this session.
+                if (ConversationManager.GetConversation("Salvador") == null)
+                    MelonCoroutines.Start(WaitForSalvadorConversation());
+
                 foreach (var kvp in DiscoveredCocaSeeds)
                 {
 #if IL2CPP
@@ -122,6 +129,23 @@ namespace UnicornsCustomSeeds.Managers
             {
                 Utility.Error("CustomCocaSeedsManager: Could not find Salvador NPC in scene. Verify Salvador is present and unlocked.");
             }
+        }
+
+        private static IEnumerator WaitForSalvadorConversation()
+        {
+            int timeoutFrames = 1800; // ~30 seconds at 60 fps — hard bail-out
+            while (timeoutFrames-- > 0)
+            {
+                if (salvador == null) yield break; // scene changed / mod cleared before Salvador showed up
+                if (salvador.MSGConversation != null)
+                {
+                    ConversationManager.RegisterConversation("Salvador", salvador.MSGConversation);
+                    CocaQuestManager.Init(); // idempotent — re-checks quest state, creates the sendable now that convo exists
+                    yield break;
+                }
+                yield return null;
+            }
+            Utility.Error("CustomCocaSeedsManager: Timed out waiting for Salvador's MSGConversation — 'Synthesize Coca' will not be offered this session.");
         }
 
         public static IEnumerator CreateCocaSeed(ProductDefinition cocaineDef)

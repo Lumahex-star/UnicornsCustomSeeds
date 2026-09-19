@@ -93,6 +93,16 @@ namespace UnicornsCustomSeeds.Managers
 
                 ShroomQuestManager.Init();
 
+                // phil.MSGConversation can still be null at this point — NPC message
+                // conversations aren't always created yet when LoadManager.onLoadComplete
+                // fires. When that happens, ShroomQuestManager.Init() silently skips
+                // creating the "Synthesize Shrooms" sendable (ConversationManager has no
+                // "Phil" entry to attach it to) and Phil never offers custom syringe
+                // synthesis for the rest of the session. Retry until his conversation
+                // shows up.
+                if (ConversationManager.GetConversation("Phil") == null)
+                    MelonCoroutines.Start(WaitForPhilConversation());
+
                 // Reload any syringes that were discovered in a previous session
                 foreach (var kvp in DiscoveredShrooms)
                 {
@@ -110,6 +120,23 @@ namespace UnicornsCustomSeeds.Managers
             {
                 Utility.Error("CustomShroomsManager: Could not find Phil.");
             }
+        }
+
+        private static IEnumerator WaitForPhilConversation()
+        {
+            int timeoutFrames = 1800; // ~30 seconds at 60 fps — hard bail-out
+            while (timeoutFrames-- > 0)
+            {
+                if (phil == null) yield break; // scene changed / mod cleared before Phil showed up
+                if (phil.MSGConversation != null)
+                {
+                    ConversationManager.RegisterConversation("Phil", phil.MSGConversation);
+                    ShroomQuestManager.Init(); // idempotent — re-checks quest state, creates the sendable now that convo exists
+                    yield break;
+                }
+                yield return null;
+            }
+            Utility.Error("CustomShroomsManager: Timed out waiting for Phil's MSGConversation — 'Synthesize Shrooms' will not be offered this session.");
         }
 
 				/// <summary>

@@ -98,6 +98,13 @@ namespace UnicornsCustomSeeds.Managers
 
                 PseudoQuestManager.Init();
 
+                // shirley.MSGConversation can still be null here — NPC message
+                // conversations aren't always created yet when LoadManager.onLoadComplete
+                // fires. Without this, PseudoQuestManager.Init() silently skips creating
+                // the synthesis sendable and Shirley never offers it this session.
+                if (ConversationManager.GetConversation("Shirley") == null)
+                    MelonCoroutines.Start(WaitForShirleyConversation());
+
                 foreach (var kvp in DiscoveredPseudoSeeds)
                 {
                     foreach (var variant in kvp.Value.variants)
@@ -112,6 +119,23 @@ namespace UnicornsCustomSeeds.Managers
             {
                 Utility.Error("CustomPseudoManager: Could not find Shirley NPC in scene. Verify she is present and unlocked.");
             }
+        }
+
+        private static IEnumerator WaitForShirleyConversation()
+        {
+            int timeoutFrames = 1800; // ~30 seconds at 60 fps — hard bail-out
+            while (timeoutFrames-- > 0)
+            {
+                if (shirley == null) yield break; // scene changed / mod cleared before Shirley showed up
+                if (shirley.MSGConversation != null)
+                {
+                    ConversationManager.RegisterConversation("Shirley", shirley.MSGConversation);
+                    PseudoQuestManager.Init(); // idempotent — re-checks quest state, creates the sendable now that convo exists
+                    yield break;
+                }
+                yield return null;
+            }
+            Utility.Error("CustomPseudoManager: Timed out waiting for Shirley's MSGConversation — synthesis will not be offered this session.");
         }
 
         public static IEnumerator CreatePseudoChain(MethDefinition methDef, EQuality quality)

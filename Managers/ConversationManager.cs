@@ -45,38 +45,16 @@ namespace UnicornsCustomSeeds.Managers
                     albertRelation = albert.RelationData;
                 }
 
-                if (CustomSeedsManager.DiscoveredSeeds.Count == 0 && albert.RelationData != null)
+                if (!WelcomedSuppliersRegistry.HasBeenWelcomed("Albert") && albert.RelationData != null)
                 {
                     if (albert.RelationData.RelationDelta >= 4f)
                     {
+                        WelcomedSuppliersRegistry.MarkWelcomed("Albert");
                         MelonCoroutines.Start(WelcomeRoutine());
                     }
-                    else
+                    else if (InjectWelcomeIntoUnlockDialogue(albert.DialogueHandler, welcomeMessage))
                     {
-                        DialogueDatabase db = albert.DialogueHandler.Database;
-                        var generic = db.GetModule(EDialogueModule.Generic);
-                        for (var i = 0; i < generic.Entries.Count; i++)
-                        {
-#if IL2CPP
-                            if (generic.Entries[i] != null && generic.Entries[i].Key == "supplier_meetings_unlocked")
-#elif MONO
-                            if (generic.Entries[i].Key == "supplier_meetings_unlocked")
-#endif
-                            {
-                                Entry supplierEntry = generic.Entries[i];
-
-                                DialogueChain chain = supplierEntry.Chains[0];
-                                if (chain != null && chain.Lines[chain.Lines.Length - 1] != welcomeMessage)
-                                {
-                                    string[] swap = chain.Lines;
-                                    string[] newLines = new string[swap.Length + 1];
-                                    newLines[0] = swap[0];
-                                    newLines[1] = swap[1];
-                                    newLines[2] = welcomeMessage;
-                                    chain.Lines = newLines;
-                                }
-                            }
-                        }
+                        WelcomedSuppliersRegistry.MarkWelcomed("Albert");
                     }
                 }
             }
@@ -97,24 +75,28 @@ namespace UnicornsCustomSeeds.Managers
         /// </summary>
         public static void InitSupplierWelcome(string npcName, NPCRelationData relationData, DialogueHandler dialogueHandler, string welcomeText, bool alreadyDiscoveredForThisSupplier)
         {
-            if (alreadyDiscoveredForThisSupplier || relationData == null) return;
+            if (alreadyDiscoveredForThisSupplier || WelcomedSuppliersRegistry.HasBeenWelcomed(npcName) || relationData == null) return;
 
             if (relationData.RelationDelta >= 4f)
             {
+                WelcomedSuppliersRegistry.MarkWelcomed(npcName);
                 MelonCoroutines.Start(GenericWelcomeRoutine(npcName, welcomeText));
             }
-            else
+            else if (InjectWelcomeIntoUnlockDialogue(dialogueHandler, welcomeText))
             {
-                InjectWelcomeIntoUnlockDialogue(dialogueHandler, welcomeText);
+                WelcomedSuppliersRegistry.MarkWelcomed(npcName);
             }
         }
 
-        private static void InjectWelcomeIntoUnlockDialogue(DialogueHandler dialogueHandler, string welcomeText)
+        /// <summary>Returns true if the "supplier_meetings_unlocked" entry was found (and the
+        /// welcome line is now present in its chain, whether it was just added or already there).</summary>
+        private static bool InjectWelcomeIntoUnlockDialogue(DialogueHandler dialogueHandler, string welcomeText)
         {
             DialogueDatabase db = dialogueHandler?.Database;
-            if (db == null) return;
+            if (db == null) return false;
 
             var generic = db.GetModule(EDialogueModule.Generic);
+            bool found = false;
             for (var i = 0; i < generic.Entries.Count; i++)
             {
 #if IL2CPP
@@ -123,6 +105,7 @@ namespace UnicornsCustomSeeds.Managers
                 if (generic.Entries[i].Key == "supplier_meetings_unlocked")
 #endif
                 {
+                    found = true;
                     Entry supplierEntry = generic.Entries[i];
 
                     DialogueChain chain = supplierEntry.Chains[0];
@@ -137,6 +120,7 @@ namespace UnicornsCustomSeeds.Managers
                     }
                 }
             }
+            return found;
         }
 
         private static IEnumerator GenericWelcomeRoutine(string npcName, string welcomeText)

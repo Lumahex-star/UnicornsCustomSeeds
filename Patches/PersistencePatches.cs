@@ -69,6 +69,9 @@ namespace UnicornsCustomSeeds.Patches
 
                 // ── UnicornsActiveCooking.json ────────────────────────────────────
                 LoadActiveCooking(saveFolder);
+
+                // ── UnicornsWelcomedSuppliers.json ────────────────────────────────
+                LoadWelcomedSuppliers(saveFolder);
             }
             catch (Exception ex)
             {
@@ -225,6 +228,31 @@ namespace UnicornsCustomSeeds.Patches
                 }
 
                 Utility.Success($"Loaded {entries.Count} active cooking entries.");
+            }
+            catch (Exception ex)
+            {
+                Utility.PrintException(ex);
+            }
+        }
+
+        private static void LoadWelcomedSuppliers(string saveFolder)
+        {
+            string filePath = Path.Combine(saveFolder, "UnicornsWelcomedSuppliers.json");
+            if (!File.Exists(filePath)) return;
+
+            try
+            {
+                string json = File.ReadAllText(filePath);
+                var names = JsonConvert.DeserializeObject<List<string>>(json);
+                if (names == null) return;
+
+                foreach (string name in names)
+                {
+                    if (!string.IsNullOrEmpty(name))
+                        WelcomedSuppliersRegistry.MarkWelcomed(name);
+                }
+
+                Utility.Success($"Loaded {names.Count} welcomed supplier(s).");
             }
             catch (Exception ex)
             {

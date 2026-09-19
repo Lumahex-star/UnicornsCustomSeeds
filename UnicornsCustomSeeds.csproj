@@ -40,6 +40,7 @@
 	<ItemGroup>
 		<Compile Include="Core.cs" />
 		<Compile Include="Managers\ActiveCookingRegistry.cs" />
+		<Compile Include="Managers\WelcomedSuppliersRegistry.cs" />
 		<Compile Include="Managers\CocaQuestManager.cs" />
 		<Compile Include="Managers\ConversationManager.cs" />
 		<Compile Include="Managers\CustomCocaSeedsManager.cs" />

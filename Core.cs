@@ -107,6 +107,13 @@ namespace UnicornsCustomSeeds
                     string json = JsonConvert.SerializeObject(entries, Formatting.Indented);
                     File.WriteAllText(Path.Combine(saveFolder, "UnicornsActiveCooking.json"), json);
                 }
+
+                // ── UnicornsWelcomedSuppliers.json ────────────────────────────────
+                {
+                    var welcomed = new List<string>(UnicornsCustomSeeds.Managers.WelcomedSuppliersRegistry.Welcomed);
+                    string json = JsonConvert.SerializeObject(welcomed, Formatting.Indented);
+                    File.WriteAllText(Path.Combine(saveFolder, "UnicornsWelcomedSuppliers.json"), json);
+                }
             }
             catch (Exception e) { Utility.PrintException(e); }
         }
@@ -181,6 +188,7 @@ namespace UnicornsCustomSeeds
                 CustomCocaSeedsManager.ClearAll();
                 CustomPseudoManager.ClearAll();
                 UnicornsCustomSeeds.Managers.ActiveCookingRegistry.Clear();
+                UnicornsCustomSeeds.Managers.WelcomedSuppliersRegistry.Clear();
                 ProductManagerAppPatches.ClearPendingIndicators();
                 StashManager.ClearCaches();
                 ModInitialized = false;

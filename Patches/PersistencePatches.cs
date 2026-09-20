@@ -56,6 +56,20 @@ namespace UnicornsCustomSeeds.Patches
     [HarmonyPatch(typeof(LoadManager), nameof(LoadManager.StartGame))]
     public static class LoadManager_StartGame_Patch
     {
+        /// <summary>
+        /// True once this Harmony postfix has actually run for the currently loaded save.
+        /// Core.SaveData() checks this before writing DiscoveredCustomSeeds.json /
+        /// UnicornsActiveCooking.json / UnicornsWelcomedSuppliers.json — all three are
+        /// otherwise-empty in-memory state until this postfix repopulates them from disk.
+        /// If Harmony fails to apply this patch (as happened with the MushroomBed/
+        /// MushroomSpawnStation "Start" bug — one bad HarmonyPatch aborts PatchAll for the
+        /// WHOLE assembly), SaveManager.onSaveComplete is a plain UnityEvent listener and
+        /// keeps firing regardless, so any save/autosave taken that session would silently
+        /// overwrite all three files with empty lists. This flag turns that into a loud
+        /// skipped-write instead of silent data loss.
+        /// </summary>
+        public static bool HasLoadedThisSession = false;
+
         public static void Postfix(LoadManager __instance)
         {
             if (__instance == null || string.IsNullOrEmpty(__instance.LoadedGameFolderPath)) return;
@@ -63,6 +77,7 @@ namespace UnicornsCustomSeeds.Patches
             try
             {
                 string saveFolder = __instance.LoadedGameFolderPath;
+                HasLoadedThisSession = true;
 
                 // ── DiscoveredCustomSeeds.json ────────────────────────────────────
                 LoadDiscoveredSeeds(saveFolder);

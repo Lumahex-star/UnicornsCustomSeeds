@@ -267,6 +267,7 @@ namespace UnicornsCustomSeeds.Managers
             DiscoveredCocaSeeds.Clear();
             SalvadorShop = null;
             salvador = null;
+            CocaQuestManager.ResetSendableState();
             if (factory != null) factory.DeleteChildren();
         }
 

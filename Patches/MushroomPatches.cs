@@ -27,7 +27,13 @@ namespace UnicornsCustomSeeds.Patches
     // "not recognize" custom syringes until a restart happens to reorder things
     // favorably.
     // ─────────────────────────────────────────────────────────────────────────
-    [HarmonyPatch(typeof(MushroomBed), "Start")]
+    // Neither MushroomBed nor MushroomSpawnStation declares its own Start() — unlike
+    // Pot/Cauldron, which override a virtual Start() from a shared base class, these two
+    // only declare Awake(). Patching "Start" here throws HarmonyException: Undefined
+    // target method at PatchAll time, which aborts patching for the WHOLE assembly (every
+    // other Harmony patch in the mod silently never applies). Awake() is the actual
+    // per-instance lifecycle hook that exists on both types, so it's the closest analog.
+    [HarmonyPatch(typeof(MushroomBed), "Awake")]
     public class MushroomBedStartPatch
     {
         [HarmonyPostfix]
@@ -38,7 +44,7 @@ namespace UnicornsCustomSeeds.Patches
         }
     }
 
-    [HarmonyPatch(typeof(MushroomSpawnStation), "Start")]
+    [HarmonyPatch(typeof(MushroomSpawnStation), "Awake")]
     public class MushroomSpawnStationStartPatch
     {
         [HarmonyPostfix]

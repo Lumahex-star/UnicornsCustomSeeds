@@ -375,6 +375,7 @@ namespace UnicornsCustomSeeds.Managers
             DiscoveredPseudoSeeds.Clear();
             ShirleyShop = null;
             shirley = null;
+            PseudoQuestManager.ResetSendableState();
             if (factory != null) factory.DeleteChildren();
         }
 

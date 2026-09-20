@@ -232,7 +232,7 @@ namespace UnicornsCustomSeeds.Managers
         /// <summary>
         /// Adds a ShroomSpawnDefinition to a single MushroomBed's Configuration.Spawn.Options,
         /// if not already present. Shared by AddSpawnToMushroomBeds (one-shot scene sweep) and
-        /// AddKnownSpawnsToBed (per-instance, called from MushroomBed.Start).
+        /// AddKnownSpawnsToBed (per-instance, called from MushroomBed.Awake).
         /// </summary>
         private static bool AddSpawnToBed(MushroomBed bed, ShroomSpawnDefinition spawn)
         {
@@ -257,7 +257,7 @@ namespace UnicornsCustomSeeds.Managers
         ///
         /// This only reaches beds that already exist at call time — any bed created afterwards
         /// (placed by the player, rebuilt on a network client, recreated when a save is loaded,
-        /// etc.) is caught by AddKnownSpawnsToBed instead, via the MushroomBed.Start patch.
+        /// etc.) is caught by AddKnownSpawnsToBed instead, via the MushroomBed.Awake patch.
         /// </summary>
         public static void AddSpawnToMushroomBeds(ShroomSpawnDefinition newSpawn)
         {
@@ -290,14 +290,14 @@ namespace UnicornsCustomSeeds.Managers
             }
 
             if (patched > 0)
-                Utility.Log($"CustomShroomsManager: Whitelisted {patched} custom spawn(s) on bed '{bed.name}' at Start.");
+                Utility.Log($"CustomShroomsManager: Whitelisted {patched} custom spawn(s) on bed '{bed.name}' at Awake.");
         }
 
         /// <summary>
         /// Adds a custom syringe ID to a single MushroomSpawnStation's SyringeSlot
         /// ItemFilter_ID whitelist, if not already present. Shared by AddSyringeToSpawnStations
         /// (one-shot scene sweep) and AddKnownSyringesToSpawnStation (per-instance, called from
-        /// MushroomSpawnStation.Start).
+        /// MushroomSpawnStation.Awake).
         /// </summary>
         private static bool AddSyringeIdToStation(MushroomSpawnStation station, string syringeId)
         {
@@ -323,7 +323,7 @@ namespace UnicornsCustomSeeds.Managers
         /// <summary>
         /// This only reaches stations that already exist at call time — any station created
         /// afterwards is caught by AddKnownSyringesToSpawnStation instead, via the
-        /// MushroomSpawnStation.Start patch.
+        /// MushroomSpawnStation.Awake patch.
         /// </summary>
         public static void AddSyringeToSpawnStations(SporeSyringeDefinition newSyringe)
         {
@@ -352,7 +352,7 @@ namespace UnicornsCustomSeeds.Managers
             }
 
             if (patched > 0)
-                Utility.Log($"CustomShroomsManager: Whitelisted {patched} custom syringe(s) on spawn station '{station.name}' at Start.");
+                Utility.Log($"CustomShroomsManager: Whitelisted {patched} custom syringe(s) on spawn station '{station.name}' at Awake.");
         }
 
         public static void CreateShopListing(SporeSyringeDefinition newSyringe, float price = 10f)
@@ -400,6 +400,7 @@ namespace UnicornsCustomSeeds.Managers
             PhilShop = null;
             PhilShopGo = null;
             phil = null;
+            ShroomQuestManager.ResetSendableState();
             if (factory != null) factory.DeleteChildren();
         }
     }

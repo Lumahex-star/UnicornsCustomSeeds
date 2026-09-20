@@ -32,6 +32,11 @@ namespace UnicornsCustomSeeds.Managers
 
         private static float lastSentTime = 0f;
 
+        // See ShroomQuestManager.sendableCreated — same reasoning applies here: Init()
+        // can run again if LoadManager.onLoadComplete fires more than once per session,
+        // and CreateSendableMessage() has no built-in dedup.
+        private static bool sendableCreated = false;
+
         public static void Init()
         {
             var quest = S1API.Quests.QuestManager.GetQuestByName("Drop off the Mix") as CustomSynthesisQuest;
@@ -45,14 +50,19 @@ namespace UnicornsCustomSeeds.Managers
                 IsWaitingForDropoff = false;
             }
 
+            if (sendableCreated) return;
+
             MSGConversation convo = ConversationManager.GetConversation("Albert");
             if (convo != null)
             {
                 MessageSenderInterface senderInterface = convo.senderInterface;
                 SendableMessage sendable = convo.CreateSendableMessage(sendableMessageId);
                 sendable.onSent += (Action)OnSent;
+                sendableCreated = true;
             }
         }
+
+        public static void ResetSendableState() => sendableCreated = false;
 
         public static void OnSent()
         {

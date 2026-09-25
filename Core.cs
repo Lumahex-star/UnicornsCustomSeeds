@@ -86,6 +86,19 @@ namespace UnicornsCustomSeeds
                 if (string.IsNullOrEmpty(saveFolder) || !Directory.Exists(saveFolder))
                     return;
 
+                // LoadManager_StartGame_Patch.Postfix is what repopulates DiscoveredSeeds/
+                // Shrooms/CocaSeeds/PseudoSeeds, ActiveCookingRegistry and
+                // WelcomedSuppliersRegistry from disk. If it never ran this session (e.g. a
+                // Harmony patch elsewhere in the mod failed at PatchAll time, which aborts
+                // patching for the WHOLE assembly — this has happened), all of that state is
+                // just empty in-memory defaults, not "nothing to save". Writing it out would
+                // silently overwrite the real, previously-saved data with empty lists.
+                if (!LoadManager_StartGame_Patch.HasLoadedThisSession)
+                {
+                    Utility.Error("Core.SaveData: skipped writing DiscoveredCustomSeeds.json / UnicornsActiveCooking.json / UnicornsWelcomedSuppliers.json — LoadManager.StartGame's postfix never ran this session (Harmony patching likely failed), so in-memory state was never loaded from disk. Existing files left untouched.");
+                    return;
+                }
+
                 // ── DiscoveredCustomSeeds.json ────────────────────────────────────
                 {
                     var all = new List<UnicornSeedData>();
@@ -212,6 +225,7 @@ namespace UnicornsCustomSeeds
                 UnicornsCustomSeeds.Managers.WelcomedSuppliersRegistry.Clear();
                 ProductManagerAppPatches.ClearPendingIndicators();
                 StashManager.ClearCaches();
+                LoadManager_StartGame_Patch.HasLoadedThisSession = false;
                 ModInitialized = false;
             }
             else

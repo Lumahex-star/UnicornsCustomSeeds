@@ -152,6 +152,7 @@ namespace UnicornsCustomSeeds.Managers
             SeedVisualsManager.seedIcons.Clear();
             SeedVisualsManager.appearanceMap.Clear();
             SeedQuestManager.seedDropoff = null;
+            SeedQuestManager.ResetSendableState();
             DiscoveredSeeds.Clear();
             factory.DeleteChildren();
             FirstLoad = false;

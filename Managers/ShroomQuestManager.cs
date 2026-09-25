@@ -31,6 +31,14 @@ namespace UnicornsCustomSeeds.Managers
 
         private static float lastSentTime = 0f;
 
+        // Init() can legitimately run more than once per session — CustomShroomsManager
+        // retries it once Phil's MSGConversation becomes available, and
+        // LoadManager.onLoadComplete itself can fire again (loading another save without
+        // leaving the Main scene). CreateSendableMessage() has no built-in dedup, so
+        // without this guard a repeat Init() call adds a second "Synthesize Shrooms"
+        // option (and a second onSent subscription) instead of a no-op.
+        private static bool sendableCreated = false;
+
         public static void Init()
         {
             var quest = S1API.Quests.QuestManager.GetQuestByName("Drop off the Shroom Mix") as CustomSynthesisQuest;
@@ -44,13 +52,18 @@ namespace UnicornsCustomSeeds.Managers
                 IsWaitingForDropoff = false;
             }
 
+            if (sendableCreated) return;
+
             MSGConversation convo = ConversationManager.GetConversation("Phil");
             if (convo != null)
             {
                 SendableMessage sendable = convo.CreateSendableMessage(sendableMessageId);
                 sendable.onSent += (Action)OnSent;
+                sendableCreated = true;
             }
         }
+
+        public static void ResetSendableState() => sendableCreated = false;
 
         public static void OnSent()
         {

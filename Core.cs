@@ -140,25 +140,13 @@ namespace UnicornsCustomSeeds
             // hang a client on the loading screen.
             Utility.Log($"InitMod: start (IsServer={InstanceFinder.IsServer}, IsClientOnly={InstanceFinder.IsClientOnly}).");
 
-            // Must happen before CustomPseudoManager.Initialize() (which calls
-            // RestorePseudoFilters() to re-inject saved custom recipes into
-            // ChemistryStationInterface.Recipes). InitMod runs on LoadManager.onLoadComplete,
-            // a UnityEvent also used by the game's own ConfigurationReplicator to apply
-            // deferred station field values (selected recipe, Destination) queued during load.
-            // Our listener was registered once at mod boot (OnLateInitializeMelon), before any
-            // scene loads, so it fires before per-load ConfigurationReplicator listeners on the
-            // same event — but only if PseudoFactory (and therefore the custom recipe) already
-            // exists by the time this runs. Previously PseudoFactory was built exclusively by
-            // InitPseudoFactoryWhenReady(), a coroutine kicked off from OnSceneWasLoaded that
-            // can still be polling when onLoadComplete fires; RestorePseudoFilters() would then
-            // silently no-op (factory == null), the custom recipe would still be missing from
-            // ChemistryStationInterface.Recipes when ConfigurationReplicator tried to resolve
-            // the station's saved selection, and that failed lookup reset both the recipe
-            // selection and the Destination field together. By main-scene time the recipe list
-            // itself is normally already populated (CustomSeedsManager.Initialize() above
-            // already finds scene objects like the Albert shop successfully), so this attempt
-            // usually succeeds immediately; the coroutine remains as a fallback for the rare
-            // case where it isn't ready yet.
+            // Build PseudoFactory before CustomPseudoManager.Initialize(), whose
+            // RestorePseudoFilters() needs it to re-inject saved custom recipes into
+            // ChemistryStationInterface.Recipes. The polling coroutine started from
+            // OnSceneWasLoaded can still be running by now, so try once synchronously; it stays
+            // as the fallback. Stations that already loaded (and dropped a saved custom recipe
+            // they couldn't resolve) are fixed up by PendingStationRecipeRegistry, so this
+            // no longer has to win a race.
             TryBuildPseudoFactory();
 
             CustomSeedsManager.Initialize();
@@ -222,6 +210,7 @@ namespace UnicornsCustomSeeds
                 CustomCocaSeedsManager.ClearAll();
                 CustomPseudoManager.ClearAll();
                 UnicornsCustomSeeds.Managers.ActiveCookingRegistry.Clear();
+                UnicornsCustomSeeds.Managers.PendingStationRecipeRegistry.Clear();
                 UnicornsCustomSeeds.Managers.WelcomedSuppliersRegistry.Clear();
                 ProductManagerAppPatches.ClearPendingIndicators();
                 StashManager.ClearCaches();
@@ -328,10 +317,7 @@ namespace UnicornsCustomSeeds
             // (factory was still null) instead of re-injecting a loaded save's custom
             // recipes into ChemistryStationInterface.Recipes. Run it now as a catch-up — it's
             // a no-op if DiscoveredPseudoSeeds is empty or everything is already in place.
-            // This can no longer fix a station's own saved recipe/Destination selection (the
-            // game's ConfigurationReplicator already tried and failed to resolve it against
-            // the still-missing recipe by the time onLoadComplete ran), but it does restore
-            // the recipe's availability going forward and the station ingredient filters.
+            // InjectRecipeForMix also applies any station selections that failed to load.
             if (built)
                 CustomPseudoManager.RestorePseudoFilters();
         }

@@ -144,6 +144,10 @@ namespace UnicornsCustomSeeds.Seeds
             }
 
             InjectCustomRecipeInternal(pseudoVariants, customLiquidMeth, methId);
+
+            // Stations that loaded before this recipe existed dropped their saved selection;
+            // see PendingStationRecipeRegistry.
+            PendingStationRecipeRegistry.ResolveAll();
         }
 
         private LiquidMethDefinition CloneCustomLiquidMeth(MethDefinition methDef)

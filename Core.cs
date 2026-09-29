@@ -121,6 +121,14 @@ namespace UnicornsCustomSeeds
                     File.WriteAllText(Path.Combine(saveFolder, "UnicornsActiveCooking.json"), json);
                 }
 
+                // ── UnicornsChemistryStations.json ────────────────────────────────
+                {
+                    ChemistryStationSnapshotManager.LogStates("at save");
+                    var entries = ChemistryStationSnapshotManager.CaptureForSave();
+                    string json = JsonConvert.SerializeObject(entries, Formatting.Indented);
+                    File.WriteAllText(Path.Combine(saveFolder, "UnicornsChemistryStations.json"), json);
+                }
+
                 // ── UnicornsWelcomedSuppliers.json ────────────────────────────────
                 {
                     var welcomed = new List<string>(UnicornsCustomSeeds.Managers.WelcomedSuppliersRegistry.Welcomed);
@@ -171,6 +179,9 @@ namespace UnicornsCustomSeeds
             }
 
             MelonCoroutines.Start(StashManager.WaitForAllStashesAndSubscribe());
+
+            ChemistryStationSnapshotManager.LogStates("at load complete");
+            MelonCoroutines.Start(ChemistryStationSnapshotManager.RestoreWhenReady());
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -211,6 +222,7 @@ namespace UnicornsCustomSeeds
                 CustomPseudoManager.ClearAll();
                 UnicornsCustomSeeds.Managers.ActiveCookingRegistry.Clear();
                 UnicornsCustomSeeds.Managers.PendingStationRecipeRegistry.Clear();
+                UnicornsCustomSeeds.Managers.ChemistryStationSnapshotManager.Clear();
                 UnicornsCustomSeeds.Managers.WelcomedSuppliersRegistry.Clear();
                 ProductManagerAppPatches.ClearPendingIndicators();
                 StashManager.ClearCaches();

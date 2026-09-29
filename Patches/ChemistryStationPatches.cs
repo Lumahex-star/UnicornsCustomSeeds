@@ -27,6 +27,7 @@ namespace UnicornsCustomSeeds.Patches
             try
             {
                 if (__0 == null || string.IsNullOrEmpty(__0.RecipeID)) return;
+                Utility.Log($"StationRecipeField.Load: RecipeID='{__0.RecipeID}' resolved={__instance.SelectedRecipe != null}");
                 if (__instance.SelectedRecipe != null) return;
                 if (!__0.RecipeID.Contains(PendingStationRecipeRegistry.CustomRecipeIdMarker)) return;
 

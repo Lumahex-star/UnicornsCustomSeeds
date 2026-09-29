@@ -81,12 +81,17 @@ namespace UnicornsCustomSeeds.Managers
             }
         }
 
-        private static StationRecipe FindRecipe(ChemistryStationInterface canvas, string recipeId)
+        public static string IdOf(StationRecipe recipe)
+        {
+            if (recipe == null || recipe.Product == null || recipe.Product.Item == null) return "";
+            return $"{recipe.Product.Quantity}x{recipe.Product.Item.ID}";
+        }
+
+        public static StationRecipe FindRecipe(ChemistryStationInterface canvas, string recipeId)
         {
             foreach (StationRecipe recipe in canvas.Recipes)
             {
-                if (recipe == null || recipe.Product == null || recipe.Product.Item == null) continue;
-                if ($"{recipe.Product.Quantity}x{recipe.Product.Item.ID}" == recipeId)
+                if (recipe != null && IdOf(recipe) == recipeId)
                     return recipe;
             }
             return null;

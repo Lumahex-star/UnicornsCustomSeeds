@@ -85,6 +85,9 @@ namespace UnicornsCustomSeeds.Patches
                 // ── UnicornsActiveCooking.json ────────────────────────────────────
                 LoadActiveCooking(saveFolder);
 
+                // ── UnicornsChemistryStations.json ────────────────────────────────
+                LoadChemistryStations(saveFolder);
+
                 // ── UnicornsWelcomedSuppliers.json ────────────────────────────────
                 LoadWelcomedSuppliers(saveFolder);
             }
@@ -243,6 +246,30 @@ namespace UnicornsCustomSeeds.Patches
                 }
 
                 Utility.Success($"Loaded {entries.Count} active cooking entries.");
+            }
+            catch (Exception ex)
+            {
+                Utility.PrintException(ex);
+            }
+        }
+
+        private static void LoadChemistryStations(string saveFolder)
+        {
+            string filePath = Path.Combine(saveFolder, "UnicornsChemistryStations.json");
+            if (!File.Exists(filePath)) return;
+
+            try
+            {
+                var entries = JsonConvert.DeserializeObject<List<ChemistryStationSnapshotEntry>>(File.ReadAllText(filePath));
+                if (entries == null) return;
+
+                foreach (var entry in entries)
+                {
+                    if (!string.IsNullOrEmpty(entry?.stationGuid))
+                        ChemistryStationSnapshotManager.Saved[entry.stationGuid] = entry;
+                }
+
+                Utility.Success($"Loaded {entries.Count} chemistry station snapshot(s).");
             }
             catch (Exception ex)
             {
